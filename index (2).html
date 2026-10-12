@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="bs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Čovječe ne ljuti se</title>
+<style>
+  * { box-sizing: border-box; } body, #world, .piece { user-select: none; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(#1a8fd1, #0a4d7a);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 8px;
+  }
+  .play {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    align-items: flex-start; justify-content: center;
+    width: 100%; max-width: 980px;
+  }
+  .boardcol { display: flex; flex-direction: column; align-items: center; }
+  h1 { color: #fff; margin: 4px 0 6px; font-size: 1.25rem; text-shadow: 0 2px 0 #0a3d5c; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  button {
+    background: linear-gradient(#ff9f1c, #e67e22);
+    border: 2px solid #fff; color: #fff; font-weight: 700;
+    padding: 8px 16px; border-radius: 12px; cursor: pointer;
+  }
+  #dice { font-size: 2rem; color: #fff; min-width: 70px; text-align: center; }
+  #world {
+    position: relative;
+    width: min(94vw, 560px);
+    height: min(94vw, 560px);
+  }
+  #water {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(255,255,255,.2) 0 7%, transparent 8%),
+      linear-gradient(180deg, #4ec3f7, #1e90d4 45%, #1480c4);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+  }
+  .base {
+    position: absolute; width: 26%; height: 26%;
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+    gap: 12%; padding: 10%;
+    border-radius: 16px;
+  }
+  .base.green { top: 3%; left: 3%; background: #3cb44a; box-shadow: inset 0 0 0 5px #2d8a36, 0 4px 0 #1f6b28; }
+  .base.yellow { top: 3%; right: 3%; background: #f4d03f; box-shadow: inset 0 0 0 5px #d4b020, 0 4px 0 #b89610; }
+  .base.red { bottom: 3%; left: 3%; background: #e74c3c; box-shadow: inset 0 0 0 5px #c0392b, 0 4px 0 #922b21; }
+  .base.blue { bottom: 3%; right: 3%; background: #3498db; box-shadow: inset 0 0 0 5px #2471a3, 0 4px 0 #1a5276; }
+  .slot { background: rgba(255,255,255,.5); border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,.2); }
+  .wood {
+    position: absolute; background: #e8c98a;
+    box-shadow: inset 0 0 0 4px #d4b06a;
+    border-radius: 10px;
+  }
+  .wood.h { left: 3%; right: 3%; height: 20%; top: 40%; }
+  .wood.v { top: 3%; bottom: 3%; width: 20%; left: 40%; }
+  .center {
+    position: absolute; width: 20%; height: 20%; left: 40%; top: 40%; z-index: 4;
+  }
+  .center svg { width: 100%; height: 100%; display: block; }
+  .dot {
+    position: absolute; z-index: 5;
+    width: 5.8%; height: 5.8%;
+    border-radius: 50%;
+    background: #fff8e8;
+    box-shadow: inset 0 0 0 2px #c9a56a, 0 1px 2px rgba(0,0,0,.25);
+    transform: translate(-50%, -50%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(7px, 1.7vw, 11px);
+    font-weight: 800;
+    color: #333;
+    line-height: 1;
+  }
+  .dot.home-g, .dot.home-r, .dot.home-b { color: #fff; }
+  .dot.home-y { color: #333; }
+  .dot.start-g { background: #7dce82; box-shadow: inset 0 0 0 2px #2d8a36; }
+  .dot.start-y { background: #ffe566; box-shadow: inset 0 0 0 2px #b89610; }
+  .dot.start-r { background: #ff8a7a; box-shadow: inset 0 0 0 2px #922b21; }
+  .dot.start-b { background: #7ec8f0; box-shadow: inset 0 0 0 2px #1a5276; }
+  .dot.home-g { background: #3cb44a; box-shadow: inset 0 0 0 2px #1f6b28; }
+  .dot.home-y { background: #f4d03f; box-shadow: inset 0 0 0 2px #b89610; }
+  .dot.home-r { background: #e74c3c; box-shadow: inset 0 0 0 2px #922b21; }
+  .dot.home-b { background: #3498db; box-shadow: inset 0 0 0 2px #1a5276; }
+  .piece {
+    position: absolute; width: 8.8%; aspect-ratio: 1;
+    z-index: 10; cursor: grab; touch-action: none;
+    filter: drop-shadow(0 3px 2px rgba(0,0,0,.35));
+  }
+  .piece:active { cursor: grabbing; z-index: 40; }
+  .piece svg { width: 100%; height: 100%; pointer-events: none; }
+
+  .school {
+    margin-top: 14px;
+    text-align: center;
+    color: #fff; font-weight: 800; font-size: clamp(14px, 3.2vw, 18px);
+    text-shadow: 0 2px 4px #0a3d5c;
+  }
+  #scorewrap {
+    width: min(94vw, 360px); margin-top: 0; flex: 0 0 auto;
+    background: #fff; color: #222; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 6px 16px rgba(0,0,0,.25);
+  }
+  #scorewrap h2 { margin: 0; padding: 8px; background: #0d6ea8; color: #fff; font-size: 1rem; text-align: center; }
+  table.score { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  table.score th, table.score td { border: 1px solid #ccc; padding: 5px 4px; text-align: center; }
+  table.score th { background: #eef6fb; }
+  table.score th.g { background: #3cb44a; color: #fff; }
+  table.score th.y { background: #f4d03f; color: #333; }
+  table.score th.r { background: #e74c3c; color: #fff; }
+  table.score th.b { background: #3498db; color: #fff; }
+  table.score input {
+    width: 52px; text-align: center; font-size: 1rem;
+    border: 1px solid #bbb; border-radius: 6px; padding: 3px;
+  }
+  table.score .sum { font-weight: 800; background: #f4f4f4; }
+  .hint { color: #dff; font-size: .85rem; margin-top: 8px; text-align: center; }
+  .dot { cursor: pointer; }
+  #qbox {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+  }
+  #qbox.show { display: flex; }
+  #qcard {
+    background: #fff; color: #222; width: min(92vw, 380px);
+    border-radius: 14px; padding: 18px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  #qcard h3 { margin: 0 0 10px; color: #0d6ea8; }
+  #qcard p { margin: 0 0 12px; font-size: 1.05rem; font-weight: 700; }
+  #qcard button { margin: 4px; }
+
+  #dice-visual {
+    width: 70px; height: 70px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 0 #ddd, 0 6px 12px rgba(0,0,0,.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3.2rem; cursor: pointer;
+    user-select: none; transition: transform .15s;
+    border: 3px solid #333;
+  }
+  #dice-visual:active { transform: scale(.95); }
+  #dice-visual.rolling { animation: shake .6s ease-in-out; }
+  @keyframes shake {
+    0%,100% { transform: rotate(0) scale(1); }
+    25% { transform: rotate(-15deg) scale(1.05); }
+    50% { transform: rotate(15deg) scale(1.1); }
+    75% { transform: rotate(-8deg) scale(1.05); }
+  }
+
+
+  #turn {
+    display: flex; align-items: center; gap: 8px;
+    color: #fff; font-weight: 700; font-size: 1rem;
+  }
+  #turn-box {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,.3);
+  }
+
+</style>
+</head>
+<body>
+<h1>Čovječe ne ljuti se</h1>
+<div class="bar">
+  <div id="dice-visual" title="Klikni da baciš">🎲</div>
+  <div id="turn">
+    <span>Igra:</span>
+    <div id="turn-box"></div>
+    <span id="turn-name">Zelena</span>
+  </div>
+  <button id="next">Slijedeći</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="play">
+<div class="boardcol">
+<div id="world">
+  <div id="water">
+    <div class="wood h"></div>
+    <div class="wood v"></div>
+    <div class="base green"><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+    <div class="base yellow"><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+    <div class="base red"><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+    <div class="base blue"><div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+    <div class="center">
+      <svg viewBox="0 0 100 100">
+        <polygon points="50,50 0,0 100,0" fill="#f4d03f"/>
+        <polygon points="50,50 100,0 100,100" fill="#3498db"/>
+        <polygon points="50,50 100,100 0,100" fill="#e74c3c"/>
+        <polygon points="50,50 0,100 0,0" fill="#3cb44a"/>
+      </svg>
+    </div>
+    <div id="dots"></div>
+  </div>
+</div>
+<div class="school">OŠ &quot;Hilmi ef. Šarić&quot;</div>
+</div>
+<div id="scorewrap">
+<h2>Bodovi</h2>
+<table class="score">
+<thead><tr><th>Runda</th><th class="g">Zelena</th><th class="y">Žuta</th><th class="r">Crvena</th><th class="b">Plava</th></tr></thead>
+<tbody id="scorebody"></tbody>
+<tfoot><tr class="sum"><td>UKUPNO</td><td id="s-g">0</td><td id="s-y">0</td><td id="s-r">0</td><td id="s-b">0</td></tr></tfoot>
+</table>
+<div style="padding:6px;text-align:center"><button type="button" id="addrow">+ Runda</button></div>
+</div>
+</div>
+<p class="hint">Povuci figure mišem. Klikni polje 7 za pitanje.</p>
+<div id="qbox">
+  <div id="qcard">
+    <h3 id="qtitle">Polje</h3>
+    <p id="qtext"></p>
+    <button type="button" id="qok">U redu</button>
+  </div>
+</div>
+<script>
+const world = document.getElementById("world");
+const dots = document.getElementById("dots");
+const CELL = 100 / 15;
+function pct(r, c) {
+  return { left: ((c + 0.5) * CELL) + "%", top: ((r + 0.5) * CELL) + "%" };
+}
+const PATH = [
+  [6,0],[6,1],[6,2],[6,3],[6,4],[6,5],
+  [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+  [0,7],[0,8],
+  [1,8],[2,8],[3,8],[4,8],[5,8],
+  [6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+  [7,14],[8,14],
+  [8,13],[8,12],[8,11],[8,10],[8,9],
+  [9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+  [14,7],[14,6],
+  [13,6],[12,6],[11,6],[10,6],[9,6],
+  [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+  [7,0]
+];
+const HOMES = {
+  g: [[7,1],[7,2],[7,3],[7,4]],
+  y: [[1,7],[2,7],[3,7],[4,7]],
+  r: [[7,13],[7,12],[7,11],[7,10]],
+  b: [[13,7],[12,7],[11,7],[10,7]]
+};
+function addDot(r, c, cls, num) {
+  const d = document.createElement("div");
+  d.className = "dot" + (cls ? " " + cls : "");
+  const p = pct(r, c);
+  d.style.left = p.left;
+  d.style.top = p.top;
+  if (num != null) d.textContent = num;
+  d.onclick = function(){ onFieldClick(cls, num); };
+  dots.appendChild(d);
+}
+var QUESTIONS = {
+  1: "Šta je Hardver?",
+  7: "Šta je hardver?"
+};
+function onFieldClick(cls, num) {
+  if (!num || !QUESTIONS[num]) return;
+  document.getElementById("qtitle").textContent = "Polje " + num;
+  document.getElementById("qtext").textContent = QUESTIONS[num];
+  document.getElementById("qbox").classList.add("show");
+}
+document.getElementById("qok").onclick = function(){
+  document.getElementById("qbox").classList.remove("show");
+};
+document.getElementById("qbox").onclick = function(e){
+  if (e.target.id === "qbox") e.target.classList.remove("show");
+};
+PATH.forEach(function(rc, i) {
+  var r=rc[0], c=rc[1], cls="";
+  if (r===6 && c===1) cls="start-g";
+  if (r===1 && c===8) cls="start-y";
+  if (r===8 && c===13) cls="start-r";
+  if (r===13 && c===6) cls="start-b";
+  addDot(r,c,cls, i+1);
+});
+HOMES.g.forEach(function(rc){ addDot(rc[0],rc[1],"home-g"); });
+HOMES.y.forEach(function(rc){ addDot(rc[0],rc[1],"home-y"); });
+HOMES.r.forEach(function(rc){ addDot(rc[0],rc[1],"home-r"); });
+HOMES.b.forEach(function(rc){ addDot(rc[0],rc[1],"home-b"); });
+function pawnSVG(color, pirate) {
+  var body = { red:"#e74c3c", blue:"#3498db", yellow:"#f4d03f", green:"#3cb44a" }[color];
+  var hat = pirate ? "<ellipse cx=\"50\" cy=\"20\" rx=\"28\" ry=\"9\" fill=\"#111\"/><rect x=\"22\" y=\"6\" width=\"56\" height=\"16\" rx=\"4\" fill=\"#111\"/>" : "";
+  return "<svg viewBox=\"0 0 100 120\"><ellipse cx=\"50\" cy=\"88\" rx=\"28\" ry=\"24\" fill=\""+body+"\"/><circle cx=\"50\" cy=\"42\" r=\"30\" fill=\""+body+"\"/><ellipse cx=\"38\" cy=\"40\" rx=\"10\" ry=\"12\" fill=\"#fff\"/><ellipse cx=\"62\" cy=\"40\" rx=\"10\" ry=\"12\" fill=\"#fff\"/><circle cx=\"40\" cy=\"42\" r=\"5\" fill=\"#1a1a1a\"/><circle cx=\"64\" cy=\"42\" r=\"5\" fill=\"#1a1a1a\"/>"+hat+"</svg>";
+}
+var YARD = {
+  green:  [[8,8],[18,8],[8,18],[18,18]],
+  yellow: [[74,8],[84,8],[74,18],[84,18]],
+  red:    [[8,74],[18,74],[8,84],[18,84]],
+  blue:   [[74,74],[84,74],[74,84],[84,84]]
+};
+function placeAll() {
+  document.querySelectorAll(".piece").forEach(function(e){ e.remove(); });
+  Object.keys(YARD).forEach(function(color){
+    YARD[color].forEach(function(xy, i){
+      var el = document.createElement("div");
+      el.className = "piece";
+      el.innerHTML = pawnSVG(color, color==="yellow" && i===3);
+      el.style.left = xy[0]+"%";
+      el.style.top = xy[1]+"%";
+      enableDrag(el);
+      world.appendChild(el);
+    });
+  });
+}
+function enableDrag(el) {
+  var dragging=false, ox=0, oy=0;
+  function start(cx,cy){ dragging=true; var r=el.getBoundingClientRect(); ox=cx-r.left; oy=cy-r.top; el.style.zIndex=50; }
+  function move(cx,cy){
+    if(!dragging) return;
+    var wr=world.getBoundingClientRect();
+    var x=((cx-wr.left-ox)/wr.width)*100;
+    var y=((cy-wr.top-oy)/wr.height)*100;
+    if(x<0)x=0; if(x>91)x=91; if(y<0)y=0; if(y>91)y=91;
+    el.style.left=x+"%"; el.style.top=y+"%";
+  }
+  function end(){ dragging=false; el.style.zIndex=10; }
+  el.addEventListener("mousedown", function(e){ e.preventDefault(); start(e.clientX,e.clientY); });
+  window.addEventListener("mousemove", function(e){ move(e.clientX,e.clientY); });
+  window.addEventListener("mouseup", end);
+  el.addEventListener("touchstart", function(e){ e.preventDefault(); start(e.touches[0].clientX,e.touches[0].clientY); }, {passive:false});
+  window.addEventListener("touchmove", function(e){ if(dragging){ e.preventDefault(); move(e.touches[0].clientX,e.touches[0].clientY); } }, {passive:false});
+  window.addEventListener("touchend", end);
+}
+placeAll();
+
+function addScoreRow() {
+  var tb = document.getElementById("scorebody");
+  var n = tb.children.length + 1;
+  var tr = document.createElement("tr");
+  tr.innerHTML = "<td>"+n+"</td>" +
+    "<td><input type=number class=pts data-t=g value=0></td>" +
+    "<td><input type=number class=pts data-t=y value=0></td>" +
+    "<td><input type=number class=pts data-t=r value=0></td>" +
+    "<td><input type=number class=pts data-t=b value=0></td>";
+  tb.appendChild(tr);
+  tr.querySelectorAll("input").forEach(function(inp){
+    inp.addEventListener("input", sumScores);
+  });
+}
+function sumScores() {
+  var tot = {g:0,y:0,r:0,b:0};
+  document.querySelectorAll("input.pts").forEach(function(inp){
+    tot[inp.dataset.t] += Number(inp.value)||0;
+  });
+  document.getElementById("s-g").textContent = tot.g;
+  document.getElementById("s-y").textContent = tot.y;
+  document.getElementById("s-r").textContent = tot.r;
+  document.getElementById("s-b").textContent = tot.b;
+}
+for (var i=0;i<5;i++) addScoreRow();
+document.getElementById("addrow").onclick = addScoreRow;
+document.getElementById("reset").onclick = placeAll;
+const faces = ["⚀","⚁","⚂","⚃","⚄","⚅"];
+const players = [
+  {name: "Zelena", color: "#3cb44a"},
+  {name: "Žuta", color: "#f4d03f"},
+  {name: "Crvena", color: "#e74c3c"},
+  {name: "Plava", color: "#3498db"}
+];
+let current = 0;
+const diceVis = document.getElementById("dice-visual");
+const turnBox = document.getElementById("turn-box");
+const turnName = document.getElementById("turn-name");
+
+function updateTurn() {
+  const p = players[current];
+  turnBox.style.background = p.color;
+  turnName.textContent = p.name;
+  diceVis.style.borderColor = p.color;
+}
+
+function rollDice(){
+  if(diceVis.classList.contains("rolling")) return;
+  diceVis.classList.add("rolling");
+  diceVis.textContent = "🎲";
+  setTimeout(function(){
+    var d = 1 + Math.floor(Math.random()*6);
+    diceVis.textContent = faces[d-1];
+    diceVis.classList.remove("rolling");
+  }, 600);
+}
+
+diceVis.onclick = rollDice;
+document.getElementById("next").onclick = function(){
+  current = (current + 1) % 4;
+  updateTurn();
+};
+updateTurn();
+</script>
+</body>
+</html>
