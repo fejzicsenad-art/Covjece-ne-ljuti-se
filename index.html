@@ -163,7 +163,116 @@
     border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,.3);
   }
 
+
+  #timer-box {
+    display: flex; align-items: center; gap: 8px;
+    color: #fff; font-weight: 700; font-size: 1.1rem;
+    background: rgba(0,0,0,.25); padding: 6px 12px; border-radius: 10px;
+  }
+  #timer-display { min-width: 48px; text-align: center; font-size: 1.4rem; }
+
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// ===== MULTIPLAYER (Supabase) =====
+// 3. Ubaci svoje podatke ovdje (iz Supabase → Project Settings → API)
+const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
+const ROOM = "igra1";                                  // isto ime sobe za sve igrače
+
+// 4. Poslije izmjene ubaci ovaj fajl na GitHub kao index.html
+
+let supabase = null;
+let channel = null;
+
+function initMultiplayer() {
+  if (!SUPABASE_URL.startsWith("https://") || SUPABASE_KEY.length < 20) {
+    console.log("Supabase nije podešen – multiplayer isključen");
+    return;
+  }
+  supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  channel = supabase.channel(ROOM);
+
+  channel
+    .on("broadcast", { event: "state" }, ({ payload }) => {
+      applyRemoteState(payload);
+    })
+    .subscribe();
+}
+
+function sendState() {
+  if (!channel) return;
+  const pieces = [];
+  document.querySelectorAll(".piece").forEach((el, i) => {
+    pieces.push({
+      left: el.style.left,
+      top: el.style.top,
+      color: el.querySelector("svg ellipse")?.getAttribute("fill") || ""
+    });
+  });
+  channel.send({
+    type: "broadcast",
+    event: "state",
+    payload: {
+      pieces,
+      dice: diceVis.textContent,
+      current,
+      scores: getScores()
+    }
+  });
+}
+
+function getScores() {
+  const s = {};
+  ["g","y","r","b"].forEach(t => {
+    s[t] = document.getElementById("s-" + t)?.textContent || "0";
+  });
+  return s;
+}
+
+function applyRemoteState(data) {
+  if (!data) return;
+  if (data.pieces) {
+    const els = document.querySelectorAll(".piece");
+    data.pieces.forEach((p, i) => {
+      if (els[i]) {
+        els[i].style.left = p.left;
+        els[i].style.top = p.top;
+      }
+    });
+  }
+  if (data.dice) diceVis.textContent = data.dice;
+  if (typeof data.current === "number") {
+    current = data.current;
+    updateTurn();
+  }
+  if (data.scores) {
+    Object.keys(data.scores).forEach(t => {
+      const el = document.getElementById("s-" + t);
+      if (el) el.textContent = data.scores[t];
+    });
+  }
+}
+
+// Hook existing actions to send state
+const origRoll = rollDice;
+rollDice = function() {
+  origRoll();
+  setTimeout(sendState, 700);
+};
+const origNext = document.getElementById("next").onclick;
+document.getElementById("next").onclick = function() {
+  origNext();
+  sendState();
+};
+// After drag end, send state (simple)
+document.querySelectorAll(".piece").forEach(el => {
+  el.addEventListener("mouseup", () => setTimeout(sendState, 100));
+  el.addEventListener("touchend", () => setTimeout(sendState, 100));
+});
+
+initMultiplayer();
+
+</script>
 </head>
 <body>
 <h1>Čovječe ne ljuti se</h1>
@@ -173,6 +282,11 @@
     <span>Igra:</span>
     <div id="turn-box"></div>
     <span id="turn-name">Zelena</span>
+  </div>
+  <div id="timer-box">
+    <span id="timer-display">60</span>
+    <button id="timer-start">Start</button>
+    <button id="timer-reset">Reset</button>
   </div>
   <button id="next">Slijedeći</button>
   <button id="reset">Reset</button>
@@ -392,6 +506,161 @@ document.getElementById("next").onclick = function(){
   updateTurn();
 };
 updateTurn();
+
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+// Timer
+let timeLeft = 60;
+let timerInterval = null;
+const timerDisplay = document.getElementById("timer-display");
+
+function updateTimerDisplay() {
+  timerDisplay.textContent = timeLeft;
+}
+
+function startTimer() {
+  if (timerInterval) return;
+  timerInterval = setInterval(function() {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timeLeft = 0;
+      updateTimerDisplay();
+      playBeep();
+    }
+  }, 1000);
+}
+
+function resetTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  timeLeft = 60;
+  updateTimerDisplay();
+}
+
+document.getElementById("timer-start").onclick = startTimer;
+document.getElementById("timer-reset").onclick = resetTimer;
+updateTimerDisplay();
+
+
+// ===== MULTIPLAYER (Supabase) =====
+// 3. Ubaci svoje podatke ovdje (iz Supabase → Project Settings → API)
+const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
+const ROOM = "igra1";                                  // isto ime sobe za sve igrače
+
+// 4. Poslije izmjene ubaci ovaj fajl na GitHub kao index.html
+
+let supabase = null;
+let channel = null;
+
+function initMultiplayer() {
+  if (!SUPABASE_URL.startsWith("https://") || SUPABASE_KEY.length < 20) {
+    console.log("Supabase nije podešen – multiplayer isključen");
+    return;
+  }
+  supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  channel = supabase.channel(ROOM);
+
+  channel
+    .on("broadcast", { event: "state" }, ({ payload }) => {
+      applyRemoteState(payload);
+    })
+    .subscribe();
+}
+
+function sendState() {
+  if (!channel) return;
+  const pieces = [];
+  document.querySelectorAll(".piece").forEach((el, i) => {
+    pieces.push({
+      left: el.style.left,
+      top: el.style.top,
+      color: el.querySelector("svg ellipse")?.getAttribute("fill") || ""
+    });
+  });
+  channel.send({
+    type: "broadcast",
+    event: "state",
+    payload: {
+      pieces,
+      dice: diceVis.textContent,
+      current,
+      scores: getScores()
+    }
+  });
+}
+
+function getScores() {
+  const s = {};
+  ["g","y","r","b"].forEach(t => {
+    s[t] = document.getElementById("s-" + t)?.textContent || "0";
+  });
+  return s;
+}
+
+function applyRemoteState(data) {
+  if (!data) return;
+  if (data.pieces) {
+    const els = document.querySelectorAll(".piece");
+    data.pieces.forEach((p, i) => {
+      if (els[i]) {
+        els[i].style.left = p.left;
+        els[i].style.top = p.top;
+      }
+    });
+  }
+  if (data.dice) diceVis.textContent = data.dice;
+  if (typeof data.current === "number") {
+    current = data.current;
+    updateTurn();
+  }
+  if (data.scores) {
+    Object.keys(data.scores).forEach(t => {
+      const el = document.getElementById("s-" + t);
+      if (el) el.textContent = data.scores[t];
+    });
+  }
+}
+
+// Hook existing actions to send state
+const origRoll = rollDice;
+rollDice = function() {
+  origRoll();
+  setTimeout(sendState, 700);
+};
+const origNext = document.getElementById("next").onclick;
+document.getElementById("next").onclick = function() {
+  origNext();
+  sendState();
+};
+// After drag end, send state (simple)
+document.querySelectorAll(".piece").forEach(el => {
+  el.addEventListener("mouseup", () => setTimeout(sendState, 100));
+  el.addEventListener("touchend", () => setTimeout(sendState, 100));
+});
+
+initMultiplayer();
+
 </script>
 </body>
 </html>
