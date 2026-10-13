@@ -153,6 +153,44 @@
   #timer-display { min-width:48px; text-align:center; font-size:1.4rem; }
 
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+// Multiplayer
+const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
+const ROOM = "igra1";
+
+let sb = null, channel = null;
+function initMP() {
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    channel = sb.channel(ROOM);
+    channel.on("broadcast", { event: "move" }, ({ payload }) => {
+      if (payload && payload.pieces) {
+        const els = document.querySelectorAll(".piece");
+        payload.pieces.forEach((pos, i) => {
+          if (els[i]) {
+            els[i].style.left = pos.left;
+            els[i].style.top = pos.top;
+          }
+        });
+      }
+    }).subscribe();
+  } catch(e) { console.log("MP off", e); }
+}
+function sendPieces() {
+  if (!channel) return;
+  const pieces = [];
+  document.querySelectorAll(".piece").forEach(el => {
+    pieces.push({ left: el.style.left, top: el.style.top });
+  });
+  channel.send({ type: "broadcast", event: "move", payload: { pieces } });
+}
+// Send after drag
+document.addEventListener("mouseup", function() { setTimeout(sendPieces, 50); });
+document.addEventListener("touchend", function() { setTimeout(sendPieces, 50); });
+initMP();
+
+</script>
 </head>
 <body>
 <h1>Čovječe ne ljuti se</h1>
@@ -404,6 +442,43 @@ function resetTimer(){
 document.getElementById("timer-start").onclick = startTimer;
 document.getElementById("timer-reset").onclick = resetTimer;
 updateTimer();
+
+
+// Multiplayer
+const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
+const ROOM = "igra1";
+
+let sb = null, channel = null;
+function initMP() {
+  try {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    channel = sb.channel(ROOM);
+    channel.on("broadcast", { event: "move" }, ({ payload }) => {
+      if (payload && payload.pieces) {
+        const els = document.querySelectorAll(".piece");
+        payload.pieces.forEach((pos, i) => {
+          if (els[i]) {
+            els[i].style.left = pos.left;
+            els[i].style.top = pos.top;
+          }
+        });
+      }
+    }).subscribe();
+  } catch(e) { console.log("MP off", e); }
+}
+function sendPieces() {
+  if (!channel) return;
+  const pieces = [];
+  document.querySelectorAll(".piece").forEach(el => {
+    pieces.push({ left: el.style.left, top: el.style.top });
+  });
+  channel.send({ type: "broadcast", event: "move", payload: { pieces } });
+}
+// Send after drag
+document.addEventListener("mouseup", function() { setTimeout(sendPieces, 50); });
+document.addEventListener("touchend", function() { setTimeout(sendPieces, 50); });
+initMP();
 
 </script>
 </body>
