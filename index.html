@@ -134,73 +134,23 @@
   #qcard p { margin: 0 0 12px; font-size: 1.05rem; font-weight: 700; }
   #qcard button { margin: 4px; }
 
-  #dice-visual {
-    width: 70px; height: 70px;
-    background: #fff; border-radius: 12px;
-    box-shadow: 0 4px 0 #ddd, 0 6px 12px rgba(0,0,0,.3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 3.2rem; cursor: pointer; border: 3px solid #333;
-  }
-  #dice-visual.rolling { animation: shake .6s ease-in-out; }
-  @keyframes shake {
-    0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg)} 
-    50%{transform:rotate(15deg)} 75%{transform:rotate(-8deg)}
-  }
-  #turn { display:flex; align-items:center; gap:8px; color:#fff; font-weight:700; }
-  #turn-box { width:28px; height:28px; border-radius:50%; border:2px solid #fff; }
-  #timer-box { display:flex; align-items:center; gap:8px; color:#fff; font-weight:700; 
-               background:rgba(0,0,0,.25); padding:6px 12px; border-radius:10px; }
-  #timer-display { min-width:48px; text-align:center; font-size:1.4rem; }
+#dice-visual{width:70px;height:70px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:3.2rem;cursor:pointer;border:3px solid #333;}
+#dice-visual.rolling{animation:shake .6s;}
+@keyframes shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-15deg)}50%{transform:rotate(15deg)}75%{transform:rotate(-8deg)}}
+#turn,#timer-box{display:flex;align-items:center;gap:8px;color:#fff;font-weight:700;}
+#turn-box{width:28px;height:28px;border-radius:50%;border:2px solid #fff;}
+#timer-box{background:rgba(0,0,0,.25);padding:6px 12px;border-radius:10px;}
+#timer-display{min-width:48px;text-align:center;font-size:1.4rem;}
 
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-// Multiplayer
-const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
-const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
-const ROOM = "igra1";
-
-let sb = null, channel = null;
-function initMP() {
-  try {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    channel = sb.channel(ROOM);
-    channel.on("broadcast", { event: "move" }, ({ payload }) => {
-      if (payload && payload.pieces) {
-        const els = document.querySelectorAll(".piece");
-        payload.pieces.forEach((pos, i) => {
-          if (els[i]) {
-            els[i].style.left = pos.left;
-            els[i].style.top = pos.top;
-          }
-        });
-      }
-    }).subscribe();
-  } catch(e) { console.log("MP off", e); }
-}
-function sendPieces() {
-  if (!channel) return;
-  const pieces = [];
-  document.querySelectorAll(".piece").forEach(el => {
-    pieces.push({ left: el.style.left, top: el.style.top });
-  });
-  channel.send({ type: "broadcast", event: "move", payload: { pieces } });
-}
-// Send after drag
-document.addEventListener("mouseup", function() { setTimeout(sendPieces, 50); });
-document.addEventListener("touchend", function() { setTimeout(sendPieces, 50); });
-initMP();
-
-</script>
 </head>
 <body>
 <h1>Čovječe ne ljuti se</h1>
 <div class="bar">
-  <div id="dice-visual" title="Klikni">🎲</div>
+  <div id="dice-visual">🎲</div>
   <div id="turn"><span>Igra:</span><div id="turn-box"></div><span id="turn-name">Zelena</span></div>
-  <div id="timer-box"><span id="timer-display">60</span>
-    <button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
-  <button id="next">Slijedeći</button>
-  <button id="reset">Reset</button>
+  <div id="timer-box"><span id="timer-display">60</span><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
+  <button id="next">Slijedeći</button><button id="reset">Reset</button>
 </div>
 <div class="play">
 <div class="boardcol">
@@ -303,10 +253,10 @@ PATH.forEach(function(rc, i) {
   if (r===13 && c===6) cls="start-b";
   addDot(r,c,cls, i+1);
 });
-HOMES.g.forEach(function(rc){ addDot(rc[0],rc[1],"home-g"); });
-HOMES.y.forEach(function(rc){ addDot(rc[0],rc[1],"home-y"); });
-HOMES.r.forEach(function(rc){ addDot(rc[0],rc[1],"home-r"); });
-HOMES.b.forEach(function(rc){ addDot(rc[0],rc[1],"home-b"); });
+HOMES.g.forEach(function(rc,i){ addDot(rc[0],rc[1],"home-g"); });
+HOMES.y.forEach(function(rc,i){ addDot(rc[0],rc[1],"home-y"); });
+HOMES.r.forEach(function(rc,i){ addDot(rc[0],rc[1],"home-r"); });
+HOMES.b.forEach(function(rc,i){ addDot(rc[0],rc[1],"home-b"); });
 function pawnSVG(color, pirate) {
   var body = { red:"#e74c3c", blue:"#3498db", yellow:"#f4d03f", green:"#3cb44a" }[color];
   var hat = pirate ? "<ellipse cx=\"50\" cy=\"20\" rx=\"28\" ry=\"9\" fill=\"#111\"/><rect x=\"22\" y=\"6\" width=\"56\" height=\"16\" rx=\"4\" fill=\"#111\"/>" : "";
@@ -380,106 +330,57 @@ function sumScores() {
 for (var i=0;i<5;i++) addScoreRow();
 document.getElementById("addrow").onclick = addScoreRow;
 document.getElementById("reset").onclick = placeAll;
-const faces = ["⚀","⚁","⚂","⚃","⚄","⚅"];
-const players = [
-  {name:"Zelena", color:"#3cb44a"},
-  {name:"Žuta", color:"#f4d03f"},
-  {name:"Crvena", color:"#e74c3c"},
-  {name:"Plava", color:"#3498db"}
-];
-let current = 0;
-const diceVis = document.getElementById("dice-visual");
-const turnBox = document.getElementById("turn-box");
-const turnName = document.getElementById("turn-name");
-function updateTurn(){
-  const p = players[current];
-  turnBox.style.background = p.color;
-  turnName.textContent = p.name;
-  diceVis.style.borderColor = p.color;
-}
-function rollDice(){
-  if(diceVis.classList.contains("rolling")) return;
-  diceVis.classList.add("rolling");
-  diceVis.textContent = "🎲";
-  setTimeout(function(){
-    diceVis.textContent = faces[Math.floor(Math.random()*6)];
-    diceVis.classList.remove("rolling");
-  }, 600);
-}
-diceVis.onclick = rollDice;
-document.getElementById("next").onclick = function(){
-  current = (current + 1) % 4;
-  updateTurn();
-};
-updateTurn();
 
-// Timer
-let timeLeft = 60, timerInterval = null;
-const timerDisplay = document.getElementById("timer-display");
-function updateTimer(){ timerDisplay.textContent = timeLeft; }
-function playBeep(){
-  try {
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 880; o.type = "sine";
-    g.gain.setValueAtTime(0.3, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime+0.5);
-    o.start(); o.stop(ctx.currentTime+0.5);
-  } catch(e){}
-}
-function startTimer(){
-  if(timerInterval) return;
-  timerInterval = setInterval(function(){
-    timeLeft--; updateTimer();
-    if(timeLeft<=0){ clearInterval(timerInterval); timerInterval=null; timeLeft=0; updateTimer(); playBeep(); }
-  }, 1000);
-}
-function resetTimer(){
-  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
-  timeLeft=60; updateTimer();
-}
-document.getElementById("timer-start").onclick = startTimer;
-document.getElementById("timer-reset").onclick = resetTimer;
+const faces=["⚀","⚁","⚂","⚃","⚄","⚅"];
+const players=[{name:"Zelena",color:"#3cb44a"},{name:"Žuta",color:"#f4d03f"},{name:"Crvena",color:"#e74c3c"},{name:"Plava",color:"#3498db"}];
+let current=0;
+const diceVis=document.getElementById("dice-visual");
+const turnBox=document.getElementById("turn-box");
+const turnName=document.getElementById("turn-name");
+function updateTurn(){const p=players[current];turnBox.style.background=p.color;turnName.textContent=p.name;diceVis.style.borderColor=p.color;}
+function rollDice(){if(diceVis.classList.contains("rolling"))return;diceVis.classList.add("rolling");diceVis.textContent="🎲";setTimeout(()=>{diceVis.textContent=faces[Math.floor(Math.random()*6)];diceVis.classList.remove("rolling");},600);}
+diceVis.onclick=rollDice;
+document.getElementById("next").onclick=()=>{current=(current+1)%4;updateTurn();};
+updateTurn();
+let timeLeft=60,timerInterval=null;
+const timerDisplay=document.getElementById("timer-display");
+function updateTimer(){timerDisplay.textContent=timeLeft;}
+function playBeep(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;o.type="sine";g.gain.setValueAtTime(0.3,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.5);o.start();o.stop(ctx.currentTime+0.5);}catch(e){}}
+function startTimer(){if(timerInterval)return;timerInterval=setInterval(()=>{timeLeft--;updateTimer();if(timeLeft<=0){clearInterval(timerInterval);timerInterval=null;timeLeft=0;updateTimer();playBeep();}},1000);}
+function resetTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}timeLeft=60;updateTimer();}
+document.getElementById("timer-start").onclick=startTimer;
+document.getElementById("timer-reset").onclick=resetTimer;
 updateTimer();
 
-
-// Multiplayer
-const SUPABASE_URL = "https://ehzwaonwhskxtrjcrdtj.supabase.co";
-const SUPABASE_KEY = "sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
-const ROOM = "igra1";
-
-let sb = null, channel = null;
-function initMP() {
-  try {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    channel = sb.channel(ROOM);
-    channel.on("broadcast", { event: "move" }, ({ payload }) => {
-      if (payload && payload.pieces) {
-        const els = document.querySelectorAll(".piece");
-        payload.pieces.forEach((pos, i) => {
-          if (els[i]) {
-            els[i].style.left = pos.left;
-            els[i].style.top = pos.top;
-          }
-        });
-      }
-    }).subscribe();
-  } catch(e) { console.log("MP off", e); }
-}
-function sendPieces() {
-  if (!channel) return;
-  const pieces = [];
-  document.querySelectorAll(".piece").forEach(el => {
-    pieces.push({ left: el.style.left, top: el.style.top });
-  });
-  channel.send({ type: "broadcast", event: "move", payload: { pieces } });
-}
-// Send after drag
-document.addEventListener("mouseup", function() { setTimeout(sendPieces, 50); });
-document.addEventListener("touchend", function() { setTimeout(sendPieces, 50); });
-initMP();
-
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL="https://ehzwaonwhskxtrjcrdtj.supabase.co";
+const SUPABASE_KEY="sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
+const ROOM="igra1";
+let channel=null;
+function initMP(){
+  try{
+    const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    channel=sb.channel(ROOM);
+    channel.on("broadcast",{event:"move"},({payload})=>{
+      if(!payload||!payload.pieces)return;
+      const els=document.querySelectorAll(".piece");
+      payload.pieces.forEach((pos,i)=>{if(els[i]){els[i].style.left=pos.left;els[i].style.top=pos.top;}});
+    }).subscribe();
+  }catch(e){console.log(e);}
+}
+function sendPieces(){
+  if(!channel)return;
+  const pieces=[];
+  document.querySelectorAll(".piece").forEach(el=>pieces.push({left:el.style.left,top:el.style.top}));
+  channel.send({type:"broadcast",event:"move",payload:{pieces}});
+}
+document.addEventListener("mouseup",()=>setTimeout(sendPieces,80));
+document.addEventListener("touchend",()=>setTimeout(sendPieces,80));
+initMP();
+</script>
+
 </body>
 </html>
