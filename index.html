@@ -231,12 +231,42 @@ function addDot(r, c, cls, num) {
   dots.appendChild(d);
 }
 var QUESTIONS = {
+  1: {
+    q: "Ko je otkrio Ameriku 1492. godine?",
+    opts: ["A) Vasko da Gama", "B) Ferdinand Magelan", "C) Kristofer Kolumbo", "D) Amerigo Vespuči"],
+    correct: 2
+  },
   7: "Šta je hardver?"
 };
 function onFieldClick(cls, num) {
   if (!num || !QUESTIONS[num]) return;
+  var q = QUESTIONS[num];
   document.getElementById("qtitle").textContent = "Polje " + num;
-  document.getElementById("qtext").textContent = QUESTIONS[num];
+  var textEl = document.getElementById("qtext");
+  var card = document.getElementById("qcard");
+  // clear old option buttons
+  card.querySelectorAll(".optbtn").forEach(function(b){ b.remove(); });
+  if (typeof q === "string") {
+    textEl.textContent = q;
+  } else {
+    textEl.textContent = q.q;
+    q.opts.forEach(function(opt, i) {
+      var btn = document.createElement("button");
+      btn.className = "optbtn";
+      btn.textContent = opt;
+      btn.onclick = function() {
+        if (i === q.correct) {
+          btn.style.background = "#3cb44a";
+          textEl.textContent = "Tačno! " + q.q;
+        } else {
+          btn.style.background = "#e74c3c";
+          textEl.textContent = "Netačno. Tačan odgovor je: " + q.opts[q.correct];
+        }
+        setTimeout(function(){ document.getElementById("qbox").classList.remove("show"); }, 1500);
+      };
+      card.insertBefore(btn, document.getElementById("qok"));
+    });
+  }
   document.getElementById("qbox").classList.add("show");
 }
 document.getElementById("qok").onclick = function(){
