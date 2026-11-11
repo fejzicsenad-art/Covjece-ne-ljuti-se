@@ -20,7 +20,20 @@
   }
   .boardcol { display: flex; flex-direction: column; align-items: center; }
   h1 { color: #fff; margin: 4px 0 6px; font-size: 1.25rem; text-shadow: 0 2px 0 #0a3d5c; }
-  .bar { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .roomrow {
+  display: flex; gap: 8px; justify-content: center; align-items: center;
+  width: 100%; margin-bottom: 10px; flex-wrap: wrap;
+}
+#room {
+  width: 160px; padding: 10px; border-radius: 10px;
+  border: 3px solid #fff; font-weight: 700; font-size: 1.1rem;
+  background: #fff; color: #222;
+}
+.bar { 
+  display: flex; flex-wrap: wrap; gap: 8px; 
+  align-items: center; justify-content: center; 
+  margin-bottom: 8px; width: 100%; max-width: 560px;
+}
   button {
     background: linear-gradient(#ff9f1c, #e67e22);
     border: 2px solid #fff; color: #fff; font-weight: 700;
@@ -146,9 +159,11 @@
 </head>
 <body>
 <h1>Čovječe ne ljuti se</h1>
-<div class="bar">
-  <input id="room" placeholder="Soba (npr. igra1)" value="igra1" style="width:120px;padding:6px;border-radius:8px;border:2px solid #fff;font-weight:700;">
+<div class="roomrow">
+  <input id="room" placeholder="Soba (npr. igra1)" value="igra1">
   <button id="join">Ulaz</button>
+</div>
+<div class="bar">
   <div id="dice-visual">🎲</div>
   <div id="turn"><span>Igra:</span><div id="turn-box"></div><span id="turn-name">Zelena</span></div>
   <div id="timer-box"><span id="timer-display">60</span><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
@@ -448,10 +463,11 @@ updateTimer();
 const SUPABASE_URL="https://ehzwaonwhskxtrjcrdtj.supabase.co";
 const SUPABASE_KEY="sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
 let channel=null, sb=null, receiving=false;
+let lastSend=0;
 
 function broadcast(payload){
   if(!channel || receiving) return;
-  channel.send({type:"broadcast", event:"state", payload});
+  channel.send({type:"broadcast", event:"state", payload}).catch(()=>{});
 }
 
 function applyState(p){
@@ -459,10 +475,16 @@ function applyState(p){
   receiving=true;
   if(p.type==="move" && p.pieces){
     const els=document.querySelectorAll(".piece");
-    p.pieces.forEach((pos,i)=>{if(els[i]){els[i].style.left=pos.left;els[i].style.top=pos.top;}});
+    p.pieces.forEach((pos,i)=>{
+      if(els[i] && pos.left && pos.top){
+        els[i].style.left=pos.left;
+        els[i].style.top=pos.top;
+      }
+    });
   }
   if(p.type==="dice" && p.face){
     diceVis.textContent=p.face;
+    diceVis.classList.remove("rolling");
   }
   if(p.type==="turn" && typeof p.current==="number"){
     current=p.current;
@@ -472,19 +494,23 @@ function applyState(p){
     timeLeft=p.timeLeft||60;
     updateTimer();
   }
-  setTimeout(()=>{receiving=false;},100);
+  setTimeout(()=>{receiving=false;},50);
 }
 
 function initMP(room){
   try{
-    if(channel){ channel.unsubscribe(); }
+    if(channel){ try{channel.unsubscribe();}catch(e){} }
     if(!sb) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-    channel=sb.channel("ludo-"+room);
+    channel=sb.channel("ludo-"+room, {config:{broadcast:{self:false}}});
     channel.on("broadcast",{event:"state"},({payload})=>{
       applyState(payload);
     }).subscribe((status)=>{
+      const el=document.getElementById("room");
       if(status==="SUBSCRIBED"){
-        document.getElementById("room").style.borderColor="#3cb44a";
+        if(el) el.style.borderColor="#3cb44a";
+        console.log("Spojen u sobu:", room);
+      } else {
+        if(el) el.style.borderColor="#e74c3c";
       }
     });
   }catch(e){ console.log(e); }
@@ -492,20 +518,23 @@ function initMP(room){
 
 function sendPieces(){
   if(!channel || receiving) return;
+  const now=Date.now();
+  if(now-lastSend<80) return;
+  lastSend=now;
   const pieces=[];
   document.querySelectorAll(".piece").forEach(el=>pieces.push({left:el.style.left,top:el.style.top}));
   broadcast({type:"move", pieces});
 }
 
-document.addEventListener("mouseup",()=>setTimeout(sendPieces,80));
-document.addEventListener("touchend",()=>setTimeout(sendPieces,80));
+document.addEventListener("mouseup",()=>setTimeout(sendPieces,30));
+document.addEventListener("touchend",()=>setTimeout(sendPieces,30));
+document.addEventListener("mousemove",sendPieces);
+document.addEventListener("touchmove",sendPieces);
 
 document.getElementById("join").onclick=function(){
-  const room=(document.getElementById("room").value||"igra1").trim().toLowerCase();
+  const room=(document.getElementById("room").value||"igra1").trim().toLowerCase().replace(/\s+/g,"");
+  if(!room) return;
   initMP(room);
 };
 initMP("igra1");
 </script>
-
-</body>
-</html>
