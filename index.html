@@ -147,6 +147,8 @@
 <body>
 <h1>Čovječe ne ljuti se</h1>
 <div class="bar">
+  <input id="room" placeholder="Soba (npr. igra1)" value="igra1" style="width:120px;padding:6px;border-radius:8px;border:2px solid #fff;font-weight:700;">
+  <button id="join">Ulaz</button>
   <div id="dice-visual">🎲</div>
   <div id="turn"><span>Igra:</span><div id="turn-box"></div><span id="turn-name">Zelena</span></div>
   <div id="timer-box"><span id="timer-display">60</span><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
@@ -425,9 +427,9 @@ const diceVis=document.getElementById("dice-visual");
 const turnBox=document.getElementById("turn-box");
 const turnName=document.getElementById("turn-name");
 function updateTurn(){const p=players[current];turnBox.style.background=p.color;turnName.textContent=p.name;diceVis.style.borderColor=p.color;}
-function rollDice(){if(diceVis.classList.contains("rolling"))return;diceVis.classList.add("rolling");diceVis.textContent="🎲";setTimeout(()=>{diceVis.textContent=faces[Math.floor(Math.random()*6)];diceVis.classList.remove("rolling");},600);}
+function rollDice(){if(diceVis.classList.contains("rolling"))return;const face=faces[Math.floor(Math.random()*6)];diceVis.classList.add("rolling");diceVis.textContent="🎲";setTimeout(()=>{diceVis.textContent=face;diceVis.classList.remove("rolling");broadcast({type:"dice",face});},600);}
 diceVis.onclick=rollDice;
-document.getElementById("next").onclick=()=>{current=(current+1)%4;updateTurn();};
+document.getElementById("next").onclick=()=>{current=(current+1)%4;updateTurn();broadcast({type:"turn",current});};
 updateTurn();
 let timeLeft=60,timerInterval=null;
 const timerDisplay=document.getElementById("timer-display");
@@ -445,28 +447,64 @@ updateTimer();
 <script>
 const SUPABASE_URL="https://ehzwaonwhskxtrjcrdtj.supabase.co";
 const SUPABASE_KEY="sb_publishable_o4muHhw2b6XGw9HdqiSOrQ_33Jr1_JY";
-const ROOM="igra1";
-let channel=null;
-function initMP(){
-  try{
-    const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-    channel=sb.channel(ROOM);
-    channel.on("broadcast",{event:"move"},({payload})=>{
-      if(!payload||!payload.pieces)return;
-      const els=document.querySelectorAll(".piece");
-      payload.pieces.forEach((pos,i)=>{if(els[i]){els[i].style.left=pos.left;els[i].style.top=pos.top;}});
-    }).subscribe();
-  }catch(e){console.log(e);}
+let channel=null, sb=null, receiving=false;
+
+function broadcast(payload){
+  if(!channel || receiving) return;
+  channel.send({type:"broadcast", event:"state", payload});
 }
+
+function applyState(p){
+  if(!p) return;
+  receiving=true;
+  if(p.type==="move" && p.pieces){
+    const els=document.querySelectorAll(".piece");
+    p.pieces.forEach((pos,i)=>{if(els[i]){els[i].style.left=pos.left;els[i].style.top=pos.top;}});
+  }
+  if(p.type==="dice" && p.face){
+    diceVis.textContent=p.face;
+  }
+  if(p.type==="turn" && typeof p.current==="number"){
+    current=p.current;
+    updateTurn();
+  }
+  if(p.type==="timer"){
+    timeLeft=p.timeLeft||60;
+    updateTimer();
+  }
+  setTimeout(()=>{receiving=false;},100);
+}
+
+function initMP(room){
+  try{
+    if(channel){ channel.unsubscribe(); }
+    if(!sb) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+    channel=sb.channel("ludo-"+room);
+    channel.on("broadcast",{event:"state"},({payload})=>{
+      applyState(payload);
+    }).subscribe((status)=>{
+      if(status==="SUBSCRIBED"){
+        document.getElementById("room").style.borderColor="#3cb44a";
+      }
+    });
+  }catch(e){ console.log(e); }
+}
+
 function sendPieces(){
-  if(!channel)return;
+  if(!channel || receiving) return;
   const pieces=[];
   document.querySelectorAll(".piece").forEach(el=>pieces.push({left:el.style.left,top:el.style.top}));
-  channel.send({type:"broadcast",event:"move",payload:{pieces}});
+  broadcast({type:"move", pieces});
 }
+
 document.addEventListener("mouseup",()=>setTimeout(sendPieces,80));
 document.addEventListener("touchend",()=>setTimeout(sendPieces,80));
-initMP();
+
+document.getElementById("join").onclick=function(){
+  const room=(document.getElementById("room").value||"igra1").trim().toLowerCase();
+  initMP(room);
+};
+initMP("igra1");
 </script>
 
 </body>
