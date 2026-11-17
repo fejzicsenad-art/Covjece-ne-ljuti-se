@@ -92,8 +92,8 @@
   }
   .base.green { top: 3%; left: 3%; background: #2ecc71; box-shadow: inset 0 0 0 5px #27ae60, 0 5px 0 #1e8449; }
   .base.yellow { top: 3%; right: 3%; background: #f1c40f; box-shadow: inset 0 0 0 5px #f39c12, 0 5px 0 #d68910; }
-  .base.red { bottom: 3%; left: 3%; background: #e74c3c; box-shadow: inset 0 0 0 5px #c0392b, 0 5px 0 #922b21; }
-  .base.blue { bottom: 3%; right: 3%; background: #3498db; box-shadow: inset 0 0 0 5px #2980b9, 0 5px 0 #1a5276; }
+  .base.red { bottom: 3%; right: 3%; background: #e74c3c; box-shadow: inset 0 0 0 5px #c0392b, 0 5px 0 #922b21; }
+  .base.blue { bottom: 3%; left: 3%; background: #3498db; box-shadow: inset 0 0 0 5px #2980b9, 0 5px 0 #1a5276; }
   .slot { background: rgba(255,255,255,.55); border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,.15); }
   .wood {
     position: absolute; background: #f4d03f;
@@ -137,6 +137,21 @@
   }
   .piece:active { cursor: grabbing; z-index: 40; }
   .piece svg { width: 100%; height: 100%; pointer-events: none; }
+  .pname {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,.4);
+  }
   .school {
     margin-top: 12px;
     text-align: center;
@@ -216,7 +231,7 @@
 <div class="bar">
   <div id="dice-visual">🎲</div>
   <div id="turn"><span>Igra:</span><div id="turn-box"></div><span id="turn-name">Zelena</span></div>
-  <div id="timer-box"><span id="timer-display">60</span><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
+  <div id="timer-box"><span id="timer-display">10</span><button id="timer-start">Start</button><button id="timer-reset">Reset</button></div>
   <button id="next">Slijedeći</button><button id="reset">Reset</button>
 </div>
 <div class="play">
@@ -424,8 +439,8 @@ PATH.forEach(function(rc, i) {
   var num = i + 1;
   if (num === 1) cls="start-g";
   else if (num === 9) cls="start-y";
-  else if (num === 17) cls="start-b";
-  else if (num === 25) cls="start-r";
+  else if (num === 17) cls="start-r";
+  else if (num === 25) cls="start-b";
   addDot(r,c,cls, num);
 });
 HOMES.g.forEach(function(rc,i){ addDot(rc[0],rc[1],"home-g"); });
@@ -440,9 +455,13 @@ function pawnSVG(color, pirate) {
 var YARD = {
   green:  [[8,8],[18,8],[8,18],[18,18]],
   yellow: [[74,8],[84,8],[74,18],[84,18]],
-  red: [[8,74],[18,74],[8,84],[18,84]],
-  blue:   [[74,74],[84,74],[74,84],[84,84]]
+  red: [[74,74],[84,74],[74,84],[84,84]],
+  blue:   [[8,74],[18,74],[8,84],[18,84]]
 };
+var GREEN_NAMES = ["Kerim F", "Amajla M", "Hana R", "Džan Ž"];
+var YELLOW_NAMES = ["Danijal T", "Atifa S", "Alejna Z", "Asja L"];
+var BLUE_NAMES = ["Emir T", "Asija H", "Ajša B", "Una I"];
+var RED_NAMES = ["Eman L", "Ilhana A", "Edna Č", "Lajla L"];
 function placeAll() {
   document.querySelectorAll(".piece").forEach(function(e){ e.remove(); });
   Object.keys(YARD).forEach(function(color){
@@ -450,6 +469,17 @@ function placeAll() {
       var el = document.createElement("div");
       el.className = "piece";
       el.innerHTML = pawnSVG(color, color==="yellow" && i===3);
+      var names = null;
+      if (color === "green") names = GREEN_NAMES;
+      else if (color === "yellow") names = YELLOW_NAMES;
+      else if (color === "blue") names = BLUE_NAMES;
+      else if (color === "red") names = RED_NAMES;
+      if (names && names[i]) {
+        var lab = document.createElement("div");
+        lab.className = "pname";
+        lab.textContent = names[i];
+        el.appendChild(lab);
+      }
       el.style.left = xy[0]+"%";
       el.style.top = xy[1]+"%";
       enableDrag(el);
@@ -517,12 +547,24 @@ function rollDice(){if(diceVis.classList.contains("rolling"))return;const face=f
 diceVis.onclick=rollDice;
 document.getElementById("next").onclick=()=>{current=(current+1)%4;updateTurn();broadcast({type:"turn",current});};
 updateTurn();
-let timeLeft=60,timerInterval=null;
+let timeLeft=10,timerInterval=null;
 const timerDisplay=document.getElementById("timer-display");
 function updateTimer(){timerDisplay.textContent=timeLeft;}
-function playBeep(){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=880;o.type="sine";g.gain.setValueAtTime(0.3,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+0.5);o.start();o.stop(ctx.currentTime+0.5);}catch(e){}}
+function playBeep(){try{
+  const ctx=new(window.AudioContext||window.webkitAudioContext)();
+  function beep(t, freq){
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.frequency.value=freq;o.type="square";
+    g.gain.setValueAtTime(0.4,ctx.currentTime+t);
+    g.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+t+0.3);
+    o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.3);
+  }
+  beep(0, 880);
+  beep(0.35, 660);
+}catch(e){}}
 function startTimer(){if(timerInterval)return;timerInterval=setInterval(()=>{timeLeft--;updateTimer();if(timeLeft<=0){clearInterval(timerInterval);timerInterval=null;timeLeft=0;updateTimer();playBeep();}},1000);}
-function resetTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}timeLeft=60;updateTimer();}
+function resetTimer(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}timeLeft=10;updateTimer();}
 document.getElementById("timer-start").onclick=startTimer;
 document.getElementById("timer-reset").onclick=resetTimer;
 updateTimer();
